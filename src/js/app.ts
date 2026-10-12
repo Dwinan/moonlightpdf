@@ -257,9 +257,10 @@ const categories = [
 
               const blob = await new Promise<Blob>(r => canvas.toBlob(b => r(b!), `image/${o.format}`, o.format==='jpeg'?0.9:1));
               zip.file(`${f.name.replace(/\.pdf$/i,'')}-page-${i}.${o.format}`, blob);
+              await new Promise(r => setTimeout(r, 0));
             }
           }
-          return await zip.generateAsync({type:'uint8array'});
+          return await zip.generateAsync({type:'uint8array', compression: 'STORE'});
         }
       },
     ]
@@ -325,9 +326,11 @@ class ToolRunner {
   async init() { this.render(); this.bindEvents(); await this.loadDeps(); }
 
   async loadDeps() {
+    await import('./pdf-shim.js');
     this.pdfLib = await import('pdf-lib');
     this.pdfjs = await import('pdfjs-dist');
-    this.pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
+    const { default: workerUrl } = await import('./pdf-worker?worker&url');
+    this.pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
   }
 
   render() {
@@ -385,7 +388,7 @@ class ToolRunner {
       const doc = await this.pdfjs.getDocument({ data: ab }).promise;
       this.state.pdfDoc = doc; this.state.pageCount = doc.numPages;
       this.renderPreview();
-    } catch (e) { console.error(e); this.showAlert(t('pdfLoadError')); }
+    } catch (e) { console.error('[MoonlightPDF] preview failed:', e); this.showAlert(t('pdfLoadError')); }
   }
 
   updateFileDisplay() {
@@ -426,7 +429,7 @@ class ToolRunner {
 
   getOpts() { const r: Record<string, any> = {}; this.config.options?.forEach(o => { const e = this.container.querySelector(`#opt-${o.id}`) as HTMLInputElement|HTMLSelectElement; if (e) r[o.id] = e.type === 'checkbox' ? e.checked : e.value; }); return r; }
 
-  async process() { this.showLoader(t('processing')); try { const r = await this.execute(); this.callbacks.onProcessComplete?.(r, this.outName()); } catch (e) { this.showAlert(e instanceof Error ? e.message : String(e)); } finally { this.hideLoader(); } }
+  async process() { this.showLoader(t('processing')); try { const r = await this.execute(); this.callbacks.onProcessComplete?.(r, this.outName()); } catch (e) { console.error('[MoonlightPDF] process failed:', e); this.showAlert(e instanceof Error ? e.message : String(e)); } finally { this.hideLoader(); } }
 
   async execute(): Promise<Uint8Array | Blob> {
     if (!this.config.execute) throw new Error('No execute function');
