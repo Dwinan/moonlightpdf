@@ -1,9 +1,70 @@
 import { initI18n, t, applyTranslations } from './i18n.js';
-import { createIcons, Moon, ArrowLeft, Upload, X, Merge, Scissors, Zap, Lock, Unlock, RotateCw, PenTool, Scan, Image, ImagePlus } from 'lucide';
+import { createIcons, Moon, ArrowLeft, Upload, X, Merge, Scissors, Zap, Lock, Unlock, RotateCw, PenTool, Scan, Image, ImagePlus, Sun, Monitor } from 'lucide';
 import '../css/styles.css';
 
-const ICONS = { Moon, ArrowLeft, Upload, X, Merge, Scissors, Zap, Lock, Unlock, RotateCw, PenTool, Scan, Image, ImagePlus };
+const ICONS = { Moon, ArrowLeft, Upload, X, Merge, Scissors, Zap, Lock, Unlock, RotateCw, PenTool, Scan, Image, ImagePlus, Sun, Monitor };
 const renderIcons = () => createIcons({ icons: ICONS });
+
+type Theme = 'light' | 'dark' | 'system';
+
+function getStoredTheme(): Theme {
+  return (localStorage.getItem('theme') as Theme) || 'system';
+}
+
+function getSystemTheme(): 'light' | 'dark' {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme(theme: Theme) {
+  const resolved = theme === 'system' ? getSystemTheme() : theme;
+  document.documentElement.setAttribute('data-theme', resolved);
+  localStorage.setItem('theme', theme);
+  updateThemeIcon(theme);
+}
+
+function updateThemeIcon(theme: Theme) {
+  const toggle = document.getElementById('themeToggle');
+  if (!toggle) return;
+  const icons = toggle.querySelectorAll('.theme-icon');
+  icons.forEach(icon => icon.classList.add('hidden'));
+  const iconMap: Record<Theme, string> = {
+    light: '.theme-icon-light',
+    dark: '.theme-icon-dark',
+    system: '.theme-icon-system'
+  };
+  const active = toggle.querySelector(iconMap[theme]);
+  active?.classList.remove('hidden');
+}
+
+function initTheme() {
+  const stored = getStoredTheme();
+  applyTheme(stored);
+
+  const toggle = document.getElementById('themeToggle');
+  if (!toggle) return;
+
+  const themes: Theme[] = ['light', 'dark', 'system'];
+  let currentIndex = themes.indexOf(stored);
+
+  const cycleTheme = () => {
+    currentIndex = (currentIndex + 1) % themes.length;
+    applyTheme(themes[currentIndex]);
+  };
+
+  toggle.addEventListener('click', cycleTheme);
+  toggle.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      cycleTheme();
+    }
+  });
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (getStoredTheme() === 'system') {
+      applyTheme('system');
+    }
+  });
+}
 
 interface ToolOption {
   id: string;
@@ -513,6 +574,7 @@ async function init() {
   document.querySelectorAll('[data-i18n]').forEach(el => { const key = el.getAttribute('data-i18n'); if (key) el.textContent = t(key); });
   document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { const key = el.getAttribute('data-i18n-placeholder'); if (key) el.setAttribute('placeholder', t(key)); });
   renderIcons();
+  initTheme();
 
   document.getElementById('alertModal')?.querySelector('.alert-ok')?.addEventListener('click', () => document.getElementById('alertModal')?.classList.add('hidden'));
   document.getElementById('alertModal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) (e.currentTarget as HTMLElement).classList.add('hidden'); });
