@@ -1,8 +1,8 @@
 import { initI18n, t, applyTranslations } from './i18n.js';
-import { createIcons, Moon, ArrowLeft, Upload, X, Merge, Scissors, Zap, Lock, Unlock, RotateCw, PenTool, Scan, Image, ImagePlus, Sun, Monitor } from 'lucide';
+import { createIcons, Moon, ArrowLeft, Upload, X, Merge, Scissors, Zap, Lock, Unlock, RotateCw, PenTool, Scan, Image, ImagePlus, Sun, Monitor, FileText } from 'lucide';
 import '../css/styles.css';
 
-const ICONS = { Moon, ArrowLeft, Upload, X, Merge, Scissors, Zap, Lock, Unlock, RotateCw, PenTool, Scan, Image, ImagePlus, Sun, Monitor };
+const ICONS = { Moon, ArrowLeft, Upload, X, Merge, Scissors, Zap, Lock, Unlock, RotateCw, PenTool, Scan, Image, ImagePlus, Sun, Monitor, FileText };
 const renderIcons = () => createIcons({ icons: ICONS });
 
 type Theme = 'light' | 'dark' | 'system';
@@ -455,11 +455,234 @@ class ToolRunner {
   updateFileDisplay() {
     const list = this.container.querySelector('#filesList');
     if (!list) return;
-    list.innerHTML = this.state.files.map((f, i) => `<div class="file-item"><span class="file-name">${f.name}</span><span class="file-size">${this.fmt(f.size)}</span><button type="button" class="remove-file" data-index="${i}" aria-label="${t('removeFile')}"><i data-lucide="x"></i></button></div>`).join('');
-    list.querySelectorAll('.remove-file').forEach(btn => btn.addEventListener('click', e => { const idx = parseInt((e.currentTarget as HTMLElement).dataset.index!); this.state.files.splice(idx, 1); this.updateFileDisplay(); if (!this.state.files.length) this.hide('filesSection'); }));
+
+    const isImageTool = this.config.id === 'image-to-pdf';
+
+    if (isImageTool) {
+      list.innerHTML = this.state.files.map((f, i) => `
+        <div class="file-item sortable-item" data-index="${i}">
+          <div class="sort-handle" aria-hidden="true">⠿</div>
+          <div class="file-info">
+            <div class="img-thumb-wrap"><img class="img-thumb" src="${URL.createObjectURL(f)}" alt="${f.name}"></div>
+            <div class="file-details">
+              <div class="file-name">${f.name}</div>
+              <div class="file-size">${this.fmt(f.size)}</div>
+            </div>
+          </div>
+          <div class="sort-controls">
+            <button type="button" class="sort-btn move-up" data-index="${i}" aria-label="Move up" ${i === 0 ? 'disabled' : ''}>↑</button>
+            <span class="sort-num">${i + 1}</span>
+            <button type="button" class="sort-btn move-down" data-index="${i}" aria-label="Move down" ${i === this.state.files.length - 1 ? 'disabled' : ''}>↓</button>
+          </div>
+          <button type="button" class="remove-file" data-index="${i}" aria-label="${t('removeFile')}"><i data-lucide="x"></i></button>
+        </div>`).join('');
+      this.bindSortEvents(list as HTMLElement);
+    } else {
+      list.innerHTML = this.state.files.map((f, i) => `
+        <div class="file-item">
+          <div class="file-info">
+            <div class="file-icon"><i data-lucide="file-text"></i></div>
+            <div class="file-details"><div class="file-name">${f.name}</div><div class="file-size">${this.fmt(f.size)}</div></div>
+          </div>
+          <button type="button" class="remove-file" data-index="${i}" aria-label="${t('removeFile')}"><i data-lucide="x"></i></button>
+        </div>`).join('');
+    }
+
+    list.querySelectorAll('.remove-file').forEach(btn => btn.addEventListener('click', e => {
+      const idx = parseInt((e.currentTarget as HTMLElement).dataset.index!);
+      this.removeFileWithAnimation(list as HTMLElement, idx);
+    }));
+
     const pb = this.container.querySelector('#processBtn') as HTMLButtonElement | null;
     if (pb) pb.disabled = this.state.files.length === 0;
     renderIcons();
+  }
+
+  removeFileWithAnimation(list: HTMLElement, idx: number) {
+    const item = list.querySelector(`.sortable-item[data-index="${idx}"]`) as HTMLElement;
+    if (!item) return;
+    
+    item.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+    item.style.transform = 'translateX(-100%)';
+    item.style.opacity = '0';
+    
+    setTimeout(() => {
+      this.state.files.splice(idx, 1);
+      this.updateFileDisplay();
+      if (!this.state.files.length) this.hide('filesSection');
+    }, 200);
+  }
+
+  bindSortEvents(list: HTMLElement) {
+    let activeDragIdx = -1;
+    let currentOverIdx = -1;
+    let startY = 0;
+    let draggedElement: HTMLElement | null = null;
+    let placeholder: HTMLElement | null = null;
+    let animFrame: number | null = null;
+    let pendingDeltaY = 0;
+
+    const items = () => Array.from(list.querySelectorAll('.sortable-item')) as HTMLElement[];
+
+    const onPointerDown = (e: PointerEvent) => {
+      if ((e.target as HTMLElement).closest('button')) return;
+
+      const item = (e.target as HTMLElement).closest('.sortable-item') as HTMLElement;
+      if (!item) return;
+
+      e.preventDefault();
+      activeDragIdx = parseInt(item.dataset.index!);
+      currentOverIdx = activeDragIdx;
+      draggedElement = item;
+
+      const rect = item.getBoundingClientRect();
+      startY = e.clientY;
+
+      // Set up dragging visuals - use transform for GPU acceleration
+      item.classList.add('is-dragging');
+      item.style.width = `${rect.width}px`;
+      item.style.position = 'fixed';
+      item.style.top = `${rect.top}px`;
+      item.style.left = `${rect.left}px`;
+      item.style.zIndex = '1000';
+      item.style.transform = 'translateY(0)';
+      item.setPointerCapture(e.pointerId);
+
+      // Create a visual placeholder
+      placeholder = document.createElement('div');
+      placeholder.className = 'sortable-placeholder';
+      placeholder.style.height = `${rect.height}px`;
+      item.parentNode?.insertBefore(placeholder, item);
+
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+
+      // Start animation loop
+      animateDrag();
+    };
+
+    const animateDrag = () => {
+      if (!draggedElement || activeDragIdx === -1) return;
+      
+      draggedElement.style.transform = `translateY(${pendingDeltaY}px)`;
+      animFrame = requestAnimationFrame(animateDrag);
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!draggedElement || activeDragIdx === -1) return;
+      
+      // Just update the pending delta, actual transform applied in rAF
+      pendingDeltaY = e.clientY - startY;
+
+      // Find the element currently hovered over based on vertical position
+      const allItems = items().filter(el => el !== draggedElement);
+      const cursorY = e.clientY;
+
+      let targetIdx = activeDragIdx;
+
+      for (let i = 0; i < allItems.length; i++) {
+        const other = allItems[i];
+        const rect = other.getBoundingClientRect();
+        const middleY = rect.top + rect.height / 2;
+
+        if (cursorY < middleY) {
+          targetIdx = parseInt(other.dataset.index!);
+          if (targetIdx > activeDragIdx) targetIdx--;
+          break;
+        } else if (i === allItems.length - 1) {
+          targetIdx = parseInt(other.dataset.index!);
+          if (targetIdx < activeDragIdx) targetIdx++;
+        }
+      }
+
+      targetIdx = Math.max(0, Math.min(this.state.files.length - 1, targetIdx));
+
+      if (targetIdx !== currentOverIdx) {
+        currentOverIdx = targetIdx;
+
+        // Shift placeholder to target position
+        const currentItems = items().filter(el => el !== draggedElement);
+        if (placeholder && placeholder.parentNode) {
+          if (currentOverIdx >= currentItems.length) {
+            list.appendChild(placeholder);
+          } else {
+            const targetEl = currentItems.find(el => parseInt(el.dataset.index!) === (currentOverIdx >= activeDragIdx ? currentOverIdx + 1 : currentOverIdx));
+            if (targetEl) {
+              list.insertBefore(placeholder, targetEl);
+            } else {
+              list.appendChild(placeholder);
+            }
+          }
+        }
+      }
+    };
+
+    const onPointerUp = (e: PointerEvent) => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+
+      if (animFrame) {
+        cancelAnimationFrame(animFrame);
+        animFrame = null;
+      }
+
+      if (!draggedElement || activeDragIdx === -1) return;
+
+      try {
+        draggedElement.releasePointerCapture(e.pointerId);
+      } catch {}
+
+      const from = activeDragIdx;
+      const to = currentOverIdx;
+
+      // Clean up placeholder & dragging styles
+      if (placeholder && placeholder.parentNode) {
+        placeholder.parentNode.removeChild(placeholder);
+        placeholder = null;
+      }
+
+      draggedElement.classList.remove('is-dragging');
+      draggedElement.style.position = '';
+      draggedElement.style.top = '';
+      draggedElement.style.left = '';
+      draggedElement.style.width = '';
+      draggedElement.style.zIndex = '';
+      draggedElement.style.transform = '';
+      draggedElement = null;
+      activeDragIdx = -1;
+      currentOverIdx = -1;
+      pendingDeltaY = 0;
+
+      // Reorder data array
+      if (from !== to && to >= 0 && to < this.state.files.length) {
+        const moved = this.state.files.splice(from, 1)[0];
+        this.state.files.splice(to, 0, moved);
+      }
+
+      this.updateFileDisplay();
+    };
+
+    list.querySelectorAll('.sortable-item').forEach(item => {
+      (item as HTMLElement).addEventListener('pointerdown', onPointerDown);
+    });
+
+    list.querySelectorAll('.move-up').forEach(btn => btn.addEventListener('click', e => {
+      const idx = parseInt((e.currentTarget as HTMLElement).dataset.index!);
+      if (idx === 0) return;
+      const moved = this.state.files.splice(idx, 1)[0];
+      this.state.files.splice(idx - 1, 0, moved);
+      this.updateFileDisplay();
+    }));
+
+    list.querySelectorAll('.move-down').forEach(btn => btn.addEventListener('click', e => {
+      const idx = parseInt((e.currentTarget as HTMLElement).dataset.index!);
+      if (idx >= this.state.files.length - 1) return;
+      const moved = this.state.files.splice(idx, 1)[0];
+      this.state.files.splice(idx + 1, 0, moved);
+      this.updateFileDisplay();
+    }));
   }
 
   async renderPreview() {
