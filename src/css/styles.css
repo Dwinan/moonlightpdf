@@ -780,13 +780,15 @@ body::before {
   transition: all 0.2s ease;
 }
 
-.page-thumbnail:hover {
+.page-thumbnail:hover,
+.page-thumbnail.active {
   border-color: var(--color-accent);
-  box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-accent);
+  box-shadow: var(--shadow-lg), 0 0 0 2px var(--color-accent);
   transform: translateY(-4px);
 }
 
-.page-thumbnail:hover::after {
+.page-thumbnail:hover::after,
+.page-thumbnail.active::after {
   opacity: 1;
   transform: translateY(0);
   color: var(--color-accent);
@@ -1104,6 +1106,7 @@ body::before {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   cursor: grabbing;
   pointer-events: none;
+  transition: transform 0.2s ease;
 }
 
 .sortable-placeholder {

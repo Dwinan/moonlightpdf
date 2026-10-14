@@ -30,7 +30,11 @@ const resources = {
       'sign-pdf': { name: 'Sign PDF', subtitle: 'Add signature', processBtn: 'Sign PDF', options: { type: 'Type', text: 'Signature text', font: 'Font', page: 'Page' } },
       'ocr-pdf': { name: 'OCR PDF', subtitle: 'Make searchable', processBtn: 'OCR PDF', options: { lang: 'Language' } },
       'image-to-pdf': { name: 'Images to PDF', subtitle: 'Convert images', processBtn: 'Convert to PDF', options: { pageSize: 'Page size', margin: 'Margin' } },
-      'pdf-to-images': { name: 'PDF to Images', subtitle: 'Extract images', processBtn: 'Extract Images', options: { format: 'Format', dpi: 'DPI' } }
+      'pdf-to-images': { name: 'PDF to Images', subtitle: 'Extract images', processBtn: 'Extract Images', options: { format: 'Format', dpi: 'DPI' } },
+      'docx-to-pdf': { name: 'DOCX to PDF', subtitle: 'Convert Word documents to PDF', processBtn: 'Convert to PDF', options: {} },
+      'pdf-to-docx': { name: 'PDF to DOCX', subtitle: 'Convert PDF to Word document', processBtn: 'Convert to DOCX', options: {} },
+      'excel-to-pdf': { name: 'Excel to PDF', subtitle: 'Convert spreadsheets to PDF', processBtn: 'Convert to PDF', options: { orientation: 'Orientation' } },
+      'pdf-to-excel': { name: 'PDF to Excel', subtitle: 'Extract tables to XLSX', processBtn: 'Convert to Excel', options: {} }
     }
   }
 } as const;
