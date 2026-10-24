@@ -84,6 +84,7 @@ interface ToolConfig {
   subtitle: string;
   accept: string;
   multiple: boolean;
+  disabled?: boolean;
   options?: ToolOption[];
   execute?: (state: any, options: any, ctx: { pdfLib: any; pdfjs: any }) => Promise<Uint8Array | Blob>;
   outputName?: (files: File[], config: ToolConfig) => string;
@@ -121,15 +122,24 @@ const categories = [
           const JSZip = (await import('jszip')).default;
           const doc = await PDFDocument.load(await s.files[0].arrayBuffer());
           const zip = new JSZip();
+          const pageCount = doc.getPageCount();
 
           let pages: number[] = [];
-          if (o.mode === 'all') pages = Array.from({length: doc.getPageCount()}, (_,i) => i+1);
-          else if (o.mode === 'single') pages = [parseInt(o.range) || 1];
+          if (o.mode === 'all') pages = Array.from({length: pageCount}, (_,i) => i+1);
+          else if (o.mode === 'single') {
+            const p = parseInt(o.range) || 1;
+            if (p < 1 || p > pageCount) throw new Error(`Page ${p} out of range (1-${pageCount})`);
+            pages = [p];
+          }
           else if (o.mode === 'range') {
-            o.range.split(',').forEach((r: string) => {
+            const seen = new Set<number>();
+            for (const r of o.range.split(',')) {
               const [a,b] = r.split('-').map(Number);
-              for (let i=a;i<=b;i++) pages.push(i);
-            });
+              const start = Math.min(a,b);
+              const end = Math.max(a,b);
+              if (start < 1 || end > pageCount) throw new Error(`Range ${r} out of bounds (1-${pageCount})`);
+              for (let i=start;i<=end;i++) if (!seen.has(i)) { seen.add(i); pages.push(i); }
+            }
           }
 
           for (const p of pages) {
@@ -155,8 +165,9 @@ const categories = [
         }
       },
       {
-        id: 'protect-pdf', name: 'Protect PDF', icon: 'lock', subtitle: 'Password protect PDF',
+        id: 'protect-pdf', name: 'Protect PDF', icon: 'lock', subtitle: 'Password protect PDF (unavailable)',
         accept: 'application/pdf', multiple: true,
+        disabled: true,
         options: [
           { id: 'userPass', type: 'text', label: 'User password', default: '' },
           { id: 'ownerPass', type: 'text', label: 'Owner password (optional)', default: '' },
@@ -164,16 +175,7 @@ const categories = [
           { id: 'perms2', type: 'checkbox', label: 'Allow copying', default: true },
         ],
         outputName: (f: File[]) => `protected-${f[0]?.name?.replace(/\.pdf$/i,'') || 'output'}.pdf`,
-        execute: async (s: any, o: any, ctx: any) => {
-          const { PDFDocument } = ctx.pdfLib;
-          const doc = await PDFDocument.load(await s.files[0].arrayBuffer());
-          doc.encrypt({
-            userPassword: o.userPass,
-            ownerPassword: o.ownerPass || o.userPass,
-            permissions: { printing: o.perms, copying: o.perms2, modifying: false, annotating: false }
-          });
-          return await doc.save();
-        }
+        execute: async (_s: any, _o: any, _ctx: any) => { throw new Error('Protect PDF not supported: pdf-lib encryption unavailable'); }
       },
       {
         id: 'unlock-pdf', name: 'Unlock PDF', icon: 'unlock', subtitle: 'Remove password',
@@ -339,6 +341,7 @@ interface ToolState {
   pdfDoc: any;
   pageCount: number;
   currentPage: number;
+  thumbUrls: string[];
   [key: string]: any;
 }
 
@@ -381,7 +384,7 @@ class ToolRunner {
 
   constructor(config: ToolConfig, container: HTMLElement, callbacks: ToolCallbacks = {}) {
     this.config = config; this.container = container; this.callbacks = callbacks;
-    this.state = { files: [], pdfDoc: null, pageCount: 0, currentPage: 1 };
+    this.state = { files: [], pdfDoc: null, pageCount: 0, currentPage: 1, thumbUrls: [] };
   }
 
   async init() { this.render(); this.bindEvents(); await this.loadDeps(); }
@@ -455,17 +458,20 @@ class ToolRunner {
   updateFileDisplay() {
     const list = this.container.querySelector('#filesList');
     if (!list) return;
+    this.state.thumbUrls.forEach(URL.revokeObjectURL);
+    this.state.thumbUrls = [];
 
     const isImageTool = this.config.id === 'image-to-pdf';
 
     if (isImageTool) {
+      const safeName = (name: string) => name.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
       list.innerHTML = this.state.files.map((f, i) => `
         <div class="file-item sortable-item" data-index="${i}">
           <div class="sort-handle" aria-hidden="true">⠿</div>
           <div class="file-info">
-            <div class="img-thumb-wrap"><img class="img-thumb" src="${URL.createObjectURL(f)}" alt="${f.name}"></div>
+            <div class="img-thumb-wrap"><img class="img-thumb" src="${this.state.thumbUrls[i] = URL.createObjectURL(f)}" alt="${safeName(f.name)}"></div>
             <div class="file-details">
-              <div class="file-name">${f.name}</div>
+              <div class="file-name">${safeName(f.name)}</div>
               <div class="file-size">${this.fmt(f.size)}</div>
             </div>
           </div>
@@ -482,7 +488,7 @@ class ToolRunner {
         <div class="file-item">
           <div class="file-info">
             <div class="file-icon"><i data-lucide="file-text"></i></div>
-            <div class="file-details"><div class="file-name">${f.name}</div><div class="file-size">${this.fmt(f.size)}</div></div>
+            <div class="file-details"><div class="file-name">${f.name.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)}</div><div class="file-size">${this.fmt(f.size)}</div></div>
           </div>
           <button type="button" class="remove-file" data-index="${i}" aria-label="${t('removeFile')}"><i data-lucide="x"></i></button>
         </div>`).join('');
@@ -501,6 +507,8 @@ class ToolRunner {
   removeFileWithAnimation(list: HTMLElement, idx: number) {
     const item = list.querySelector(`.sortable-item[data-index="${idx}"]`) as HTMLElement;
     if (!item) return;
+    
+    if (this.state.thumbUrls[idx]) { URL.revokeObjectURL(this.state.thumbUrls[idx]); this.state.thumbUrls.splice(idx, 1); }
     
     item.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
     item.style.transform = 'translateX(-100%)';
@@ -737,7 +745,7 @@ class ToolRunner {
   hide(id: string) { this.container.querySelector(`#${id}`)?.classList.add('hidden'); }
   fmt(b: number) { if (b === 0) return '0 B'; const k = 1024, s = ['B','KB','MB','GB']; const i = Math.floor(Math.log(b)/Math.log(k)); return parseFloat((b/Math.pow(k,i)).toFixed(2)) + ' ' + s[i]; }
 
-  reset() { this.state = { files: [], pdfDoc: null, pageCount: 0, currentPage: 1 }; (this.container.querySelector('#fileInput') as HTMLInputElement).value = ''; this.hide('filesSection'); this.hide('optionsSection'); this.hide('previewSection'); this.render(); this.bindEvents(); }
+  reset() { this.state.thumbUrls.forEach(URL.revokeObjectURL); this.state = { files: [], pdfDoc: null, pageCount: 0, currentPage: 1, thumbUrls: [] }; (this.container.querySelector('#fileInput') as HTMLInputElement).value = ''; this.hide('filesSection'); this.hide('optionsSection'); this.hide('previewSection'); this.render(); this.bindEvents(); }
   destroy() { this.container.innerHTML = ''; }
 }
 
@@ -766,7 +774,7 @@ async function renderHomepage() {
           <h2 class="category-title">${category.name}</h2>
           <div class="tool-grid">
             ${category.tools.map(tool => `
-              <a href="#/${tool.id}" class="tool-card" data-tool-id="${tool.id}">
+              <a href="#/${tool.id}" class="tool-card${'disabled' in tool && tool.disabled ? ' is-disabled' : ''}" data-tool-id="${tool.id}" ${'disabled' in tool && tool.disabled ? 'aria-disabled="true" tabindex="-1"' : ''}>
                 <i data-lucide="${tool.icon}"></i>
                 <span class="tool-name" data-i18n="tools:${tool.id}.name">${tool.name}</span>
                 <span class="tool-subtitle" data-i18n="tools:${tool.id}.subtitle">${tool.subtitle}</span>
@@ -786,7 +794,7 @@ async function handleRoute() {
   const toolMatch = hash.match(/^\/([a-z0-9-]+)$/);
   if (toolMatch) {
     const config = getToolConfig(toolMatch[1]);
-    if (config) { await renderTool(config); return; }
+    if (config && !config.disabled) { await renderTool(config); return; }
   }
   await renderHomepage();
 }
