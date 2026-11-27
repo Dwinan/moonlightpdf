@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MoonlightPDF - Free Online PDF Tools</title>
     <meta name="description" content="Free online PDF toolkit. Merge, split, compress, convert PDFs - 100% browser-based, no signup, unlimited files, privacy-first." />
+    <script>
+      (function () {
+        var t = localStorage.getItem('theme') || 'system';
+        var r = t === 'system' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : t;
+        document.documentElement.setAttribute('data-theme', r);
+      })();
+    </script>
   </head>
   <body>
     <nav class="nav" role="navigation" aria-label="Main navigation">
