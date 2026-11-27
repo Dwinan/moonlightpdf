@@ -24,17 +24,13 @@ const resources = {
       'merge-pdf': { name: 'Merge PDF', subtitle: 'Combine multiple PDFs', processBtn: 'Merge PDFs', options: {} },
       'split-pdf': { name: 'Split PDF', subtitle: 'Split PDF into parts', processBtn: 'Split PDF', options: { mode: 'Split mode', range: 'Page range (e.g. 1-3,5)' } },
       'compress-pdf': { name: 'Compress PDF', subtitle: 'Reduce PDF size', processBtn: 'Compress PDF', options: { quality: 'Quality' } },
-      'protect-pdf': { name: 'Protect PDF', subtitle: 'Password protect PDF', processBtn: 'Protect PDF', options: { userPass: 'User password', ownerPass: 'Owner password (optional)', perms: 'Allow printing', perms2: 'Allow copying' } },
-      'unlock-pdf': { name: 'Unlock PDF', subtitle: 'Remove password', processBtn: 'Unlock PDF', options: { password: 'Password' } },
+      'protect-pdf': { name: 'Protect PDF', subtitle: 'Password protect PDF (unavailable)', processBtn: 'Protect PDF', options: { userPass: 'User password', ownerPass: 'Owner password (optional)', perms: 'Allow printing', perms2: 'Allow copying' } },
+      'unlock-pdf': { name: 'Unlock PDF', subtitle: 'Remove password (unavailable)', processBtn: 'Unlock PDF', options: { password: 'Password' } },
       'rotate-pdf': { name: 'Rotate PDF', subtitle: 'Rotate pages', processBtn: 'Rotate PDF', options: { angle: 'Rotation', pages: 'Apply to' } },
-      'sign-pdf': { name: 'Sign PDF', subtitle: 'Add signature', processBtn: 'Sign PDF', options: { type: 'Type', text: 'Signature text', font: 'Font', page: 'Page' } },
+      'sign-pdf': { name: 'Sign PDF', subtitle: 'Add signature', processBtn: 'Sign PDF', options: { text: 'Signature text', font: 'Font', page: 'Page' } },
       'ocr-pdf': { name: 'OCR PDF', subtitle: 'Make searchable', processBtn: 'OCR PDF', options: { lang: 'Language' } },
       'image-to-pdf': { name: 'Images to PDF', subtitle: 'Convert images', processBtn: 'Convert to PDF', options: { pageSize: 'Page size', margin: 'Margin' } },
-      'pdf-to-images': { name: 'PDF to Images', subtitle: 'Extract images', processBtn: 'Extract Images', options: { format: 'Format', dpi: 'DPI' } },
-      'docx-to-pdf': { name: 'DOCX to PDF', subtitle: 'Convert Word documents to PDF', processBtn: 'Convert to PDF', options: {} },
-      'pdf-to-docx': { name: 'PDF to DOCX', subtitle: 'Convert PDF to Word document', processBtn: 'Convert to DOCX', options: {} },
-      'excel-to-pdf': { name: 'Excel to PDF', subtitle: 'Convert spreadsheets to PDF', processBtn: 'Convert to PDF', options: { orientation: 'Orientation' } },
-      'pdf-to-excel': { name: 'PDF to Excel', subtitle: 'Extract tables to XLSX', processBtn: 'Convert to Excel', options: {} }
+      'pdf-to-images': { name: 'PDF to Images', subtitle: 'Extract images', processBtn: 'Extract Images', options: { format: 'Format', dpi: 'DPI' } }
     }
   }
 } as const;

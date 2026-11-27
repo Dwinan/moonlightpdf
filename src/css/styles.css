@@ -671,7 +671,8 @@ body::before {
 
 .option-select select,
 .option-range input,
-.option-text input {
+.option-text input,
+.option-password input {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-primary);
   color: var(--color-text-primary);
@@ -686,7 +687,8 @@ body::before {
 
 .option-select select:focus,
 .option-range input:focus,
-.option-text input:focus {
+.option-text input:focus,
+.option-password input:focus {
   outline: none;
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-light);
@@ -760,6 +762,7 @@ body::before {
   transition: all 0.2s ease;
   aspect-ratio: 3/4;
   position: relative;
+  cursor: pointer;
 }
 
 .page-thumbnail::after {
@@ -1047,6 +1050,22 @@ body::before {
   outline: none;
   box-shadow: 0 0 0 3px var(--color-accent-light), var(--shadow-xl);
   border-color: transparent;
+}
+
+.tool-card.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.tool-card.is-disabled:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--color-border-primary);
+}
+
+.tool-card.is-disabled:hover::before {
+  transform: scaleX(0);
 }
 
 .tool-card-icon {
